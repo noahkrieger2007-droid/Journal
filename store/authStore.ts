@@ -49,7 +49,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) throw error;
     if (data.session) {
-      const profile = await fetchProfile(data.session.user.id);
+      let profile = await fetchProfile(data.session.user.id);
+      if (!profile) {
+        // Profile missing (email confirmation required during signup, RLS blocked insert)
+        // Create it now that we have a valid session
+        await supabase.from("users").upsert({
+          id: data.session.user.id,
+          email: data.session.user.email!,
+          name: email.split("@")[0],
+          preferred_language: "de",
+          face_id_enabled: false,
+        });
+        profile = await fetchProfile(data.session.user.id);
+      }
       set({ session: data.session, user: profile });
     }
   },
