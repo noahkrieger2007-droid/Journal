@@ -34,11 +34,16 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await signUp(email.trim(), password, name.trim());
-      Alert.alert(
-        "NOVA",
-        "Konto erstellt! Bitte bestätige deine E-Mail, dann kannst du dich anmelden.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-      );
+      const { user } = useAuthStore.getState();
+      if (user) {
+        router.replace("/(tabs)");
+      } else {
+        Alert.alert(
+          "NOVA",
+          "Fast fertig! Bitte bestätige deine E-Mail und melde dich dann an.",
+          [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
+        );
+      }
     } catch (e: any) {
       Alert.alert(t("common.error"), e.message || t("auth.registerError"));
     } finally {

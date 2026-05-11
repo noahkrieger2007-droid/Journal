@@ -25,35 +25,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const {
       data: { session },
     } = await supabase.auth.getSession();
+
     if (session) {
-      let profile = await fetchProfile(session.user.id);
-      if (!profile) {
-        await supabase.from("users").upsert({
-          id: session.user.id,
-          email: session.user.email ?? `anon_${session.user.id}@nova.app`,
-          name: "Ich",
-          preferred_language: "de",
-          face_id_enabled: false,
-        });
-        profile = await fetchProfile(session.user.id);
-      }
+      const profile = await ensureProfile(session.user.id, session.user.email ?? "");
       set({ session, user: profile, isLoading: false });
     } else {
-      // Auto sign-in anonymously so app works without login
-      const { data: anonData } = await supabase.auth.signInAnonymously();
-      if (anonData.session) {
-        await supabase.from("users").upsert({
-          id: anonData.session.user.id,
-          email: `anon_${anonData.session.user.id}@nova.app`,
-          name: "Ich",
-          preferred_language: "de",
-          face_id_enabled: false,
-        });
-        const profile = await fetchProfile(anonData.session.user.id);
-        set({ session: anonData.session, user: profile, isLoading: false });
-      } else {
-        set({ isLoading: false });
-      }
+      set({ isLoading: false });
     }
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -73,17 +50,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) throw error;
     if (data.session) {
-      let profile = await fetchProfile(data.session.user.id);
-      if (!profile) {
-        await supabase.from("users").upsert({
-          id: data.session.user.id,
-          email: data.session.user.email!,
-          name: email.split("@")[0],
-          preferred_language: "de",
-          face_id_enabled: false,
-        });
-        profile = await fetchProfile(data.session.user.id);
-      }
+      const profile = await ensureProfile(data.session.user.id, email);
       set({ session: data.session, user: profile });
     }
   },
@@ -91,15 +58,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async (email, password, name) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
-    if (data.user) {
+
+    if (data.session) {
+      // Email confirmation is OFF — we have a session immediately
       await supabase.from("users").upsert({
-        id: data.user.id,
+        id: data.session.user.id,
         email,
         name,
         preferred_language: "de",
         face_id_enabled: false,
       });
+      const profile = await fetchProfile(data.session.user.id);
+      set({ session: data.session, user: profile });
     }
+    // If data.session is null, email confirmation is still ON in Supabase settings
   },
 
   signOut: async () => {
@@ -124,4 +96,19 @@ async function fetchProfile(userId: string): Promise<User | null> {
     .eq("id", userId)
     .single();
   return data as User | null;
+}
+
+async function ensureProfile(userId: string, email: string): Promise<User | null> {
+  let profile = await fetchProfile(userId);
+  if (!profile) {
+    await supabase.from("users").upsert({
+      id: userId,
+      email,
+      name: email.split("@")[0],
+      preferred_language: "de",
+      face_id_enabled: false,
+    });
+    profile = await fetchProfile(userId);
+  }
+  return profile;
 }
