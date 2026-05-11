@@ -121,11 +121,20 @@ export const useJournalStore = create<JournalState>((set, get) => ({
       const processed = data as ProcessedEntry;
       set({ processingStep: 4 });
 
+      // Build enriched summary including pattern observations
+      let fullSummary = processed.summary || "";
+      if (processed.pattern_observation) {
+        fullSummary += `\n\n✦ ${processed.pattern_observation}`;
+      }
+      if (processed.goal_progress) {
+        fullSummary += `\n\n🎯 ${processed.goal_progress}`;
+      }
+
       // Persist AI output
       await supabase
         .from("journal_entries")
         .update({
-          ai_summary: processed.summary,
+          ai_summary: fullSummary,
           mood_score: processed.mood_score,
           energy_score: processed.energy_score,
           highlights: processed.highlights,

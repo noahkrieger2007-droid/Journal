@@ -30,6 +30,7 @@ export default function JournalScreen() {
   const { settings } = useSettingsStore();
 
   const [text, setText] = useState("");
+  const [interim, setInterim] = useState(""); // live preview while speaking
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stepLabel, setStepLabel] = useState("");
@@ -62,19 +63,37 @@ export default function JournalScreen() {
     const r = new SR();
     r.lang = i18n.language === "de" ? "de-DE" : "en-US";
     r.continuous = true;
-    r.interimResults = false;
+    r.interimResults = true;
     r.onresult = (e: any) => {
-      const t2 = Array.from(e.results as any[]).slice(e.resultIndex).map((x: any) => x[0].transcript).join(" ");
-      setText((p) => p ? p + " " + t2 : t2);
+      let finalPart = "";
+      let interimPart = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        if (result.isFinal) {
+          finalPart += result[0].transcript;
+        } else {
+          interimPart += result[0].transcript;
+        }
+      }
+      if (finalPart) {
+        setText((p) => p ? p.trimEnd() + " " + finalPart.trim() : finalPart.trim());
+        setInterim("");
+      } else {
+        setInterim(interimPart);
+      }
     };
-    r.onerror = (e: any) => { setIsRecording(false); if (e.error !== "aborted") Alert.alert("", "Fehler: " + e.error); };
-    r.onend = () => setIsRecording(false);
+    r.onerror = (e: any) => {
+      setIsRecording(false);
+      setInterim("");
+      if (e.error !== "aborted" && e.error !== "no-speech") Alert.alert("", "Sprachfehler: " + e.error);
+    };
+    r.onend = () => { setIsRecording(false); setInterim(""); };
     r.start();
     recognitionRef.current = r;
     setIsRecording(true);
   };
 
-  const stopVoice = () => { recognitionRef.current?.stop(); recognitionRef.current = null; setIsRecording(false); };
+  const stopVoice = () => { recognitionRef.current?.stop(); recognitionRef.current = null; setIsRecording(false); setInterim(""); };
 
   const pickImages = async () => {
     if (photos.length >= 5) { Alert.alert("", t("journal.maxPhotos")); return; }
@@ -202,6 +221,15 @@ export default function JournalScreen() {
             multiline
             autoFocus
           />
+
+          {/* Live interim speech preview */}
+          {interim.length > 0 && (
+            <View style={{ backgroundColor: COLORS.cardAlt, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border }}>
+              <Text style={{ fontSize: 15, color: COLORS.muted, fontStyle: "italic", lineHeight: 22 }}>
+                {interim}
+              </Text>
+            </View>
+          )}
 
           {/* Char count */}
           <Text style={{ fontSize: 12, color: charOk ? COLORS.success : COLORS.muted, textAlign: "right", marginBottom: 16, fontWeight: charOk ? "700" : "400" }}>

@@ -97,18 +97,21 @@ export interface Intention {
 // Claude API response shape (from Edge Function)
 export interface ProcessedEntry {
   summary: string;
-  categories: Array<{ name: CategoryName; duration_minutes: number | null }>;
+  highlights: string;
   mood_score: number;
   energy_score: number;
+  mood_reasoning: string | null;
+  categories: Array<{ name: CategoryName; duration_minutes: number | null }>;
   achievements: string[];
+  challenges: string[];
   key_topics: string[];
   new_memories: Array<{
     type: MemoryType;
     content: string;
     importance: number;
   }>;
-  highlights: string;
-  intention_comparison: string | null;
+  pattern_observation: string | null;
+  goal_progress: string | null;
 }
 
 export interface WeeklyReview {
