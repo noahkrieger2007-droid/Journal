@@ -9,7 +9,6 @@ import {
   Platform,
   Alert,
   Image,
-  ActivityIndicator,
   Animated,
 } from "react-native";
 import { router } from "expo-router";
@@ -20,22 +19,9 @@ import { useJournalStore } from "@/store/journalStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 
-const PROCESSING_STEPS_DE = [
-  "Analysiere deinen Tag...",
-  "Erkenne Kategorien...",
-  "Extrahiere Highlights...",
-  "Erstelle Zusammenfassung...",
-  "Aktualisiere Erinnerungen...",
-];
-const PROCESSING_STEPS_EN = [
-  "Analysing your day...",
-  "Detecting categories...",
-  "Extracting highlights...",
-  "Writing summary...",
-  "Updating memories...",
-];
+const STEPS_DE = ["Analysiere...", "Erkenne Kategorien...", "Extrahiere Highlights...", "Erstelle Zusammenfassung...", "Fertigstellen..."];
+const STEPS_EN = ["Analysing...", "Detecting categories...", "Extracting highlights...", "Writing summary...", "Finalising..."];
 
 export default function JournalScreen() {
   const { t, i18n } = useTranslation();
@@ -46,136 +32,63 @@ export default function JournalScreen() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [processingStepLabel, setProcessingStepLabel] = useState("");
+  const [stepLabel, setStepLabel] = useState("");
   const [isRecording, setIsRecording] = useState(false);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const micPulse = useRef(new Animated.Value(1)).current;
   const recognitionRef = useRef<any>(null);
 
-  const steps = i18n.language === "de" ? PROCESSING_STEPS_DE : PROCESSING_STEPS_EN;
+  const steps = i18n.language === "de" ? STEPS_DE : STEPS_EN;
 
   useEffect(() => {
     if (isProcessing) {
-      setProcessingStepLabel(steps[Math.min(processingStep, steps.length - 1)]);
+      setStepLabel(steps[Math.min(processingStep, steps.length - 1)]);
       Animated.timing(progressAnim, {
         toValue: (processingStep + 1) / steps.length,
-        duration: 600,
+        duration: 500,
         useNativeDriver: false,
       }).start();
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.stopAnimation();
     }
   }, [isProcessing, processingStep]);
 
   useEffect(() => {
-    if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(micPulse, { toValue: 1.2, duration: 600, useNativeDriver: true }),
-          Animated.timing(micPulse, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ])
-      ).start();
-    } else {
-      micPulse.stopAnimation();
-      micPulse.setValue(1);
-    }
-  }, [isRecording]);
-
-  // Stop recording when component unmounts
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-    };
+    return () => { recognitionRef.current?.stop(); };
   }, []);
 
   const startVoice = () => {
-    if (typeof window === "undefined") {
-      Alert.alert("", t("journal.voiceNotAvailable"));
-      return;
-    }
+    if (typeof window === "undefined") { Alert.alert("", t("journal.voiceNotAvailable")); return; }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      Alert.alert("", "Spracheingabe ist in diesem Browser nicht verfügbar. Bitte Safari oder Chrome verwenden.");
-      return;
-    }
-    const recognition = new SR();
-    recognition.lang = i18n.language === "de" ? "de-DE" : "en-US";
-    recognition.continuous = true;
-    recognition.interimResults = false;
-
-    recognition.onresult = (e: any) => {
-      const transcript = Array.from(e.results as any[])
-        .slice((e as any).resultIndex)
-        .map((r: any) => r[0].transcript)
-        .join(" ");
-      setText((prev) => (prev ? prev + " " + transcript : transcript));
+    if (!SR) { Alert.alert("", "Spracheingabe ist in diesem Browser nicht verfügbar."); return; }
+    const r = new SR();
+    r.lang = i18n.language === "de" ? "de-DE" : "en-US";
+    r.continuous = true;
+    r.interimResults = false;
+    r.onresult = (e: any) => {
+      const t2 = Array.from(e.results as any[]).slice(e.resultIndex).map((x: any) => x[0].transcript).join(" ");
+      setText((p) => p ? p + " " + t2 : t2);
     };
-
-    recognition.onerror = (e: any) => {
-      setIsRecording(false);
-      if (e.error !== "aborted") {
-        Alert.alert("", "Sprachfehler: " + e.error);
-      }
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
+    r.onerror = (e: any) => { setIsRecording(false); if (e.error !== "aborted") Alert.alert("", "Fehler: " + e.error); };
+    r.onend = () => setIsRecording(false);
+    r.start();
+    recognitionRef.current = r;
     setIsRecording(true);
   };
 
-  const stopVoice = () => {
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    setIsRecording(false);
-  };
-
-  const toggleVoice = () => {
-    if (isRecording) {
-      stopVoice();
-    } else {
-      startVoice();
-    }
-  };
+  const stopVoice = () => { recognitionRef.current?.stop(); recognitionRef.current = null; setIsRecording(false); };
 
   const pickImages = async () => {
-    if (photos.length >= 5) {
-      Alert.alert("", t("journal.maxPhotos"));
-      return;
-    }
+    if (photos.length >= 5) { Alert.alert("", t("journal.maxPhotos")); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
       selectionLimit: 5 - photos.length,
     });
-    if (!result.canceled) {
-      const newUris = result.assets.map((a) => a.uri);
-      setPhotos((prev) => [...prev, ...newUris].slice(0, 5));
-    }
-  };
-
-  const removePhoto = (uri: string) => {
-    setPhotos((prev) => prev.filter((p) => p !== uri));
+    if (!result.canceled) setPhotos((p) => [...p, ...result.assets.map((a) => a.uri)].slice(0, 5));
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
-    if (text.trim().length < 50) {
-      Alert.alert("", t("journal.minLength"));
-      return;
-    }
+    if (!user || text.trim().length < 50) { Alert.alert("", t("journal.minLength")); return; }
     if (isRecording) stopVoice();
     setIsSubmitting(true);
     progressAnim.setValue(0);
@@ -193,57 +106,40 @@ export default function JournalScreen() {
     }
   };
 
-  const today = new Date().toLocaleDateString(
-    i18n.language === "de" ? "de-DE" : "en-US",
-    { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-  );
-
+  const today = new Date().toLocaleDateString(i18n.language === "de" ? "de-DE" : "en-US", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
   const charOk = text.length >= 50;
 
   if (isProcessing || isSubmitting) {
     return (
-      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+      <View style={{ flex: 1, backgroundColor: COLORS.bg, alignItems: "center", justifyContent: "center", paddingHorizontal: 36 }}>
+        <View
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 20,
+            backgroundColor: COLORS.ink,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 28,
+          }}
+        >
+          <Text style={{ fontSize: 32 }}>✦</Text>
+        </View>
+        <Text style={{ fontSize: 20, fontWeight: "800", color: COLORS.ink, marginBottom: 6, textAlign: "center" }}>
+          NOVA analysiert…
+        </Text>
+        <Text style={{ fontSize: 14, color: COLORS.subtle, marginBottom: 32, textAlign: "center" }}>{stepLabel}</Text>
+        <View style={{ width: "100%", height: 3, backgroundColor: COLORS.border, borderRadius: 2, overflow: "hidden" }}>
           <Animated.View
             style={{
-              transform: [{ scale: pulseAnim }],
-              width: 96,
-              height: 96,
-              borderRadius: 28,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 32,
-              overflow: "hidden",
+              height: "100%",
+              backgroundColor: COLORS.ink,
+              borderRadius: 2,
+              width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
             }}
-          >
-            <LinearGradient
-              colors={["#FF6330", "#FF8555"]}
-              style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
-            >
-              <Text style={{ fontSize: 40 }}>✨</Text>
-            </LinearGradient>
-          </Animated.View>
-
-          <Text style={{ fontSize: 22, fontWeight: "800", color: COLORS.text, marginBottom: 8, textAlign: "center" }}>
-            {t("journal.processing")}
-          </Text>
-          <Text style={{ fontSize: 15, color: COLORS.subtle, marginBottom: 36, textAlign: "center" }}>
-            {processingStepLabel}
-          </Text>
-
-          <View style={{ width: "100%", height: 6, backgroundColor: COLORS.border, borderRadius: 3, overflow: "hidden" }}>
-            <Animated.View
-              style={{
-                height: "100%",
-                backgroundColor: COLORS.orange,
-                borderRadius: 3,
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["0%", "100%"],
-                }),
-              }}
-            />
-          </View>
+          />
         </View>
       </View>
     );
@@ -251,198 +147,132 @@ export default function JournalScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+
         {/* Header */}
-        <LinearGradient
-          colors={["#FF6330", "#FF8555", "#FFAA80"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            paddingTop: 64,
-            paddingHorizontal: 24,
-            paddingBottom: 24,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
-          }}
-        >
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 4 }}>{today}</Text>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -0.5 }}>
+        <View style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+          <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 2, letterSpacing: 0.2 }}>{today}</Text>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: COLORS.ink, letterSpacing: -0.6 }}>
             {t("journal.newEntry")}
           </Text>
-        </LinearGradient>
+        </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Voice recording banner */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
+
+          {/* Recording pill */}
           {isRecording && (
             <View
               style={{
-                backgroundColor: COLORS.danger + "15",
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                marginBottom: 12,
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 10,
-                borderWidth: 1,
-                borderColor: COLORS.danger + "40",
+                gap: 8,
+                backgroundColor: COLORS.dangerBg,
+                borderRadius: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                marginBottom: 14,
               }}
             >
-              <Animated.View
-                style={{
-                  transform: [{ scale: micPulse }],
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: COLORS.danger,
-                }}
-              />
-              <Text style={{ fontSize: 14, color: COLORS.danger, fontWeight: "600", flex: 1 }}>
-                Aufnahme läuft... Tippe nochmal auf das Mikrofon zum Stoppen.
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.danger }} />
+              <Text style={{ fontSize: 13, color: COLORS.danger, fontWeight: "600", flex: 1 }}>
+                Aufnahme läuft — tippe "Stoppen" wenn fertig
               </Text>
             </View>
           )}
 
-          {/* Main text input */}
-          <View
+          {/* Text area */}
+          <TextInput
             style={{
-              backgroundColor: COLORS.card,
-              borderRadius: 20,
-              borderWidth: 1.5,
-              borderColor: text.length > 0 ? COLORS.orange + "60" : COLORS.border,
-              padding: 20,
-              marginBottom: 12,
+              fontSize: 17,
+              color: COLORS.ink,
+              lineHeight: 28,
               minHeight: 220,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 10,
-              elevation: 2,
+              textAlignVertical: "top",
+              backgroundColor: COLORS.card,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: text.length > 0 ? COLORS.ink + "30" : COLORS.border,
+              padding: 18,
+              marginBottom: 10,
             }}
-          >
-            <TextInput
-              style={{
-                color: COLORS.text,
-                fontSize: 17,
-                lineHeight: 28,
-                flex: 1,
-                minHeight: 180,
-                textAlignVertical: "top",
-              }}
-              placeholder={t("journal.placeholder")}
-              placeholderTextColor={COLORS.muted}
-              value={text}
-              onChangeText={setText}
-              multiline
-              autoFocus
-            />
-          </View>
+            placeholder={t("journal.placeholder")}
+            placeholderTextColor={COLORS.muted}
+            value={text}
+            onChangeText={setText}
+            multiline
+            autoFocus
+          />
 
           {/* Char count */}
-          <Text
-            style={{
-              fontSize: 12,
-              color: charOk ? COLORS.success : COLORS.muted,
-              textAlign: "right",
-              marginBottom: 14,
-              fontWeight: charOk ? "700" : "400",
-            }}
-          >
-            {text.length} Zeichen{!charOk ? ` (min. 50)` : " ✓"}
+          <Text style={{ fontSize: 12, color: charOk ? COLORS.success : COLORS.muted, textAlign: "right", marginBottom: 16, fontWeight: charOk ? "700" : "400" }}>
+            {text.length} Zeichen{!charOk ? " (min. 50)" : " ✓"}
           </Text>
 
-          {/* Photos row */}
+          {/* Photos */}
           {photos.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
               {photos.map((uri) => (
                 <View key={uri} style={{ marginRight: 10, position: "relative" }}>
-                  <Image source={{ uri }} style={{ width: 90, height: 90, borderRadius: 14 }} />
+                  <Image source={{ uri }} style={{ width: 84, height: 84, borderRadius: 10 }} />
                   <TouchableOpacity
-                    onPress={() => removePhoto(uri)}
+                    onPress={() => setPhotos((p) => p.filter((x) => x !== uri))}
                     style={{
-                      position: "absolute",
-                      top: -6,
-                      right: -6,
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      backgroundColor: COLORS.danger,
-                      alignItems: "center",
-                      justifyContent: "center",
+                      position: "absolute", top: -6, right: -6,
+                      width: 20, height: 20, borderRadius: 10,
+                      backgroundColor: COLORS.ink,
+                      alignItems: "center", justifyContent: "center",
                     }}
                   >
-                    <Ionicons name="close" size={13} color="#fff" />
+                    <Ionicons name="close" size={12} color="#fff" />
                   </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
           )}
 
-          {/* Action row */}
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
-            {/* Photo button */}
+          {/* Action buttons */}
+          <View style={{ flexDirection: "row", gap: 10 }}>
             <TouchableOpacity
               onPress={pickImages}
               style={{
                 flex: 1,
-                backgroundColor: COLORS.card,
-                borderRadius: 14,
-                padding: 14,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 8,
+                gap: 6,
+                backgroundColor: COLORS.card,
+                borderRadius: 10,
+                paddingVertical: 13,
                 borderWidth: 1,
                 borderColor: COLORS.border,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 4,
-                elevation: 1,
               }}
+              activeOpacity={0.75}
             >
-              <Ionicons name="image-outline" size={18} color={COLORS.subtle} />
+              <Ionicons name="image-outline" size={17} color={COLORS.subtle} />
               <Text style={{ fontSize: 14, color: COLORS.subtle, fontWeight: "600" }}>
-                Fotos {photos.length > 0 && `(${photos.length})`}
+                Fotos{photos.length > 0 ? ` (${photos.length})` : ""}
               </Text>
             </TouchableOpacity>
 
-            {/* Voice button */}
             <TouchableOpacity
-              onPress={toggleVoice}
+              onPress={isRecording ? stopVoice : startVoice}
               style={{
                 flex: 1,
-                borderRadius: 14,
-                padding: 14,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 8,
+                gap: 6,
+                backgroundColor: isRecording ? COLORS.dangerBg : COLORS.card,
+                borderRadius: 10,
+                paddingVertical: 13,
                 borderWidth: 1,
-                backgroundColor: isRecording ? COLORS.danger + "15" : COLORS.card,
                 borderColor: isRecording ? COLORS.danger + "50" : COLORS.border,
-                shadowColor: isRecording ? COLORS.danger : "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: isRecording ? 0.12 : 0.04,
-                shadowRadius: 4,
-                elevation: 1,
               }}
+              activeOpacity={0.75}
             >
-              <Ionicons
-                name={isRecording ? "stop-circle-outline" : "mic-outline"}
-                size={18}
-                color={isRecording ? COLORS.danger : COLORS.subtle}
-              />
-              <Text style={{ fontSize: 14, color: isRecording ? COLORS.danger : COLORS.subtle, fontWeight: "600" }}>
-                {isRecording ? "Stoppen" : "Sprache"}
+              <Ionicons name={isRecording ? "stop-circle-outline" : "mic-outline"} size={17} color={isRecording ? COLORS.danger : COLORS.subtle} />
+              <Text style={{ fontSize: 14, fontWeight: "600", color: isRecording ? COLORS.danger : COLORS.subtle }}>
+                {isRecording ? "Stoppen" : "Sprechen"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -450,43 +280,25 @@ export default function JournalScreen() {
           <View style={{ height: 120 }} />
         </ScrollView>
 
-        {/* Submit bar */}
-        <View
-          style={{
-            paddingHorizontal: 20,
-            paddingBottom: Platform.OS === "ios" ? 40 : 24,
-            paddingTop: 14,
-            backgroundColor: COLORS.bg,
-            borderTopWidth: 1,
-            borderTopColor: COLORS.border,
-          }}
-        >
+        {/* Submit */}
+        <View style={{ paddingHorizontal: 24, paddingBottom: Platform.OS === "ios" ? 40 : 24, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.bg }}>
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={!charOk}
+            activeOpacity={0.85}
             style={{
-              borderRadius: 16,
-              overflow: "hidden",
-              opacity: charOk ? 1 : 0.5,
-              shadowColor: COLORS.orange,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: charOk ? 0.35 : 0,
-              shadowRadius: 12,
-              elevation: charOk ? 8 : 0,
+              backgroundColor: charOk ? COLORS.ink : COLORS.border,
+              borderRadius: 12,
+              paddingVertical: 17,
+              alignItems: "center",
             }}
           >
-            <LinearGradient
-              colors={charOk ? ["#FF6330", "#FF8555"] : [COLORS.border, COLORS.border]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ paddingVertical: 18, alignItems: "center" }}
-            >
-              <Text style={{ color: charOk ? "#fff" : COLORS.muted, fontSize: 17, fontWeight: "700", letterSpacing: 0.3 }}>
-                {t("journal.submit")} ✨
-              </Text>
-            </LinearGradient>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: charOk ? "#fff" : COLORS.muted, letterSpacing: 0.2 }}>
+              {t("journal.submit")}
+            </Text>
           </TouchableOpacity>
         </View>
+
       </KeyboardAvoidingView>
     </View>
   );

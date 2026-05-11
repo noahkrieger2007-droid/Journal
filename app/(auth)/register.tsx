@@ -11,7 +11,6 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
 import { COLORS } from "@/constants/theme";
@@ -25,7 +24,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || password.length < 8) {
@@ -39,11 +38,9 @@ export default function RegisterScreen() {
       if (user) {
         router.replace("/(tabs)");
       } else {
-        Alert.alert(
-          "NOVA",
-          "Fast fertig! Bitte bestätige deine E-Mail und melde dich dann an.",
-          [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
-        );
+        Alert.alert("NOVA", "Fast fertig! Bitte bestätige deine E-Mail und melde dich dann an.", [
+          { text: "OK", onPress: () => router.replace("/(auth)/login") },
+        ]);
       }
     } catch (e: any) {
       Alert.alert(t("common.error"), e.message || t("auth.registerError"));
@@ -52,59 +49,45 @@ export default function RegisterScreen() {
     }
   };
 
-  const field = (
+  const inputField = (
     label: string,
     icon: string,
-    fieldKey: string,
+    key: string,
     value: string,
     onChange: (v: string) => void,
-    opts?: { keyboardType?: any; secure?: boolean; showToggle?: boolean; onToggle?: () => void; autoCapitalize?: any }
+    opts?: { keyboard?: any; secure?: boolean; toggle?: boolean; onToggle?: () => void; capitalize?: any }
   ) => (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.subtle, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.6 }}>
+    <View style={{ marginBottom: 14 }}>
+      <Text style={{ fontSize: 12, fontWeight: "700", color: COLORS.subtle, marginBottom: 7, letterSpacing: 0.6, textTransform: "uppercase" }}>
         {label}
       </Text>
       <View
         style={{
-          backgroundColor: COLORS.card,
-          borderRadius: 16,
-          borderWidth: 1.5,
-          borderColor: focusedField === fieldKey ? COLORS.orange : COLORS.border,
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 16,
-          shadowColor: focusedField === fieldKey ? COLORS.orange : "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: focusedField === fieldKey ? 0.15 : 0.04,
-          shadowRadius: 8,
-          elevation: 2,
+          backgroundColor: COLORS.card,
+          borderRadius: 12,
+          borderWidth: 1.5,
+          borderColor: focused === key ? COLORS.ink : COLORS.border,
+          paddingHorizontal: 14,
         }}
       >
-        <Ionicons
-          name={icon as any}
-          size={18}
-          color={focusedField === fieldKey ? COLORS.orange : COLORS.muted}
-          style={{ marginRight: 10 }}
-        />
+        <Ionicons name={icon as any} size={17} color={focused === key ? COLORS.ink : COLORS.muted} style={{ marginRight: 10 }} />
         <TextInput
-          style={{ flex: 1, color: COLORS.text, fontSize: 16, paddingVertical: 16 }}
+          style={{ flex: 1, fontSize: 16, color: COLORS.ink, paddingVertical: 15 }}
           value={value}
           onChangeText={onChange}
           secureTextEntry={opts?.secure}
-          keyboardType={opts?.keyboardType}
-          autoCapitalize={opts?.autoCapitalize ?? "none"}
+          keyboardType={opts?.keyboard}
+          autoCapitalize={opts?.capitalize ?? "none"}
           autoCorrect={false}
           placeholderTextColor={COLORS.muted}
-          onFocus={() => setFocusedField(fieldKey)}
-          onBlur={() => setFocusedField(null)}
+          onFocus={() => setFocused(key)}
+          onBlur={() => setFocused(null)}
         />
-        {opts?.showToggle && (
-          <TouchableOpacity onPress={opts.onToggle}>
-            <Ionicons
-              name={opts.secure ? "eye-outline" : "eye-off-outline"}
-              size={18}
-              color={COLORS.muted}
-            />
+        {opts?.toggle && (
+          <TouchableOpacity onPress={opts.onToggle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name={opts.secure ? "eye-outline" : "eye-off-outline"} size={17} color={COLORS.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -113,104 +96,66 @@ export default function RegisterScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Warm gradient header */}
-          <LinearGradient
-            colors={["#FF6330", "#FF8555", "#FFAA80"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              paddingTop: 80,
-              paddingBottom: 48,
-              paddingHorizontal: 32,
-              borderBottomLeftRadius: 40,
-              borderBottomRightRadius: 40,
-            }}
-          >
-            <View style={{ alignItems: "center" }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={{ paddingHorizontal: 28, paddingTop: 80, paddingBottom: 48 }}>
+
+            <View style={{ marginBottom: 44 }}>
               <View
                 style={{
-                  width: 76,
-                  height: 76,
-                  borderRadius: 22,
-                  backgroundColor: "rgba(255,255,255,0.25)",
-                  borderWidth: 2,
-                  borderColor: "rgba(255,255,255,0.5)",
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  backgroundColor: COLORS.ink,
                   alignItems: "center",
                   justifyContent: "center",
-                  marginBottom: 20,
+                  marginBottom: 24,
                 }}
               >
-                <Text style={{ fontSize: 36, fontWeight: "800", color: "#fff" }}>N</Text>
+                <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -1 }}>N</Text>
               </View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.5 }}>
+              <Text style={{ fontSize: 30, fontWeight: "800", color: COLORS.ink, letterSpacing: -0.8, marginBottom: 6 }}>
                 {t("auth.registerTitle")}
               </Text>
-              <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", marginTop: 8, textAlign: "center" }}>
+              <Text style={{ fontSize: 15, color: COLORS.subtle, lineHeight: 22 }}>
                 {t("auth.registerSubtitle")}
               </Text>
             </View>
-          </LinearGradient>
 
-          <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
-            {field(t("auth.name"), "person-outline", "name", name, setName, { autoCapitalize: "words" })}
-            {field(t("auth.email"), "mail-outline", "email", email, setEmail, { keyboardType: "email-address" })}
-            {field(t("auth.password"), "lock-closed-outline", "password", password, setPassword, {
+            {inputField(t("auth.name"), "person-outline", "name", name, setName, { capitalize: "words" })}
+            {inputField(t("auth.email"), "mail-outline", "email", email, setEmail, { keyboard: "email-address" })}
+            {inputField(t("auth.password"), "lock-closed-outline", "pw", password, setPassword, {
               secure: !showPassword,
-              showToggle: true,
+              toggle: true,
               onToggle: () => setShowPassword(!showPassword),
             })}
 
-            <View style={{ height: 16 }} />
+            <View style={{ height: 18 }} />
 
             <TouchableOpacity
               onPress={handleRegister}
               disabled={isLoading}
+              activeOpacity={0.85}
               style={{
-                borderRadius: 16,
-                overflow: "hidden",
-                shadowColor: COLORS.orange,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.35,
-                shadowRadius: 12,
-                elevation: 8,
-                marginBottom: 24,
+                backgroundColor: COLORS.ink,
+                borderRadius: 12,
+                paddingVertical: 17,
+                alignItems: "center",
+                marginBottom: 20,
               }}
             >
-              <LinearGradient
-                colors={["#FF6330", "#FF8555"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{ paddingVertical: 18, alignItems: "center" }}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ color: "#fff", fontSize: 17, fontWeight: "700" }}>
-                    {t("auth.register")}
-                  </Text>
-                )}
-              </LinearGradient>
+              {isLoading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff", letterSpacing: 0.2 }}>{t("auth.register")}</Text>
+              }
             </TouchableOpacity>
 
             <View style={{ flexDirection: "row", justifyContent: "center" }}>
-              <Text style={{ color: COLORS.muted, fontSize: 14 }}>{t("auth.alreadyAccount")} </Text>
+              <Text style={{ fontSize: 14, color: COLORS.muted }}>{t("auth.alreadyAccount")} </Text>
               <TouchableOpacity onPress={() => router.back()}>
-                <Text style={{ color: COLORS.orange, fontSize: 14, fontWeight: "700" }}>
-                  {t("auth.login")}
-                </Text>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.ink }}>{t("auth.login")}</Text>
               </TouchableOpacity>
             </View>
-
-            <View style={{ height: 40 }} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

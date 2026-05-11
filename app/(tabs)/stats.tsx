@@ -1,14 +1,6 @@
 import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
 import { useJournalStore } from "@/store/journalStore";
@@ -23,7 +15,6 @@ interface StatsData {
   totalEntries: number;
   avgMood: number;
   avgEnergy: number;
-  streak: number;
   categoryTotals: Record<string, number>;
   moodHistory: Array<{ date: string; mood: number }>;
   topCategory: string | null;
@@ -42,45 +33,30 @@ async function loadStats(userId: string, period: Period): Promise<StatsData> {
     .gte("date", since.toISOString().split("T")[0])
     .order("date", { ascending: true });
 
-  if (!entries || entries.length === 0) {
-    return { totalEntries: 0, avgMood: 0, avgEnergy: 0, streak: 0, categoryTotals: {}, moodHistory: [], topCategory: null };
-  }
+  if (!entries?.length) return { totalEntries: 0, avgMood: 0, avgEnergy: 0, categoryTotals: {}, moodHistory: [], topCategory: null };
 
-  const withMood = entries.filter((e) => e.mood_score);
-  const avgMood = withMood.length
-    ? withMood.reduce((s, e) => s + e.mood_score, 0) / withMood.length
-    : 0;
-
-  const withEnergy = entries.filter((e) => e.energy_score);
-  const avgEnergy = withEnergy.length
-    ? withEnergy.reduce((s, e) => s + e.energy_score, 0) / withEnergy.length
-    : 0;
-
+  const moodArr = entries.filter((e) => e.mood_score);
+  const energyArr = entries.filter((e) => e.energy_score);
   const categoryTotals: Record<string, number> = {};
-  entries.forEach((e) => {
-    e.categories?.forEach((c: any) => {
-      categoryTotals[c.category_name] = (categoryTotals[c.category_name] || 0) + 1;
-    });
-  });
-
-  const moodHistory = entries.filter((e) => e.mood_score).map((e) => ({ date: e.date, mood: e.mood_score }));
+  entries.forEach((e) => e.categories?.forEach((c: any) => {
+    categoryTotals[c.category_name] = (categoryTotals[c.category_name] || 0) + 1;
+  }));
   const topCategory = Object.keys(categoryTotals).sort((a, b) => categoryTotals[b] - categoryTotals[a])[0] || null;
 
   return {
     totalEntries: entries.length,
-    avgMood: Math.round(avgMood * 10) / 10,
-    avgEnergy: Math.round(avgEnergy * 10) / 10,
-    streak: 0,
+    avgMood: moodArr.length ? Math.round(moodArr.reduce((s, e) => s + e.mood_score, 0) / moodArr.length * 10) / 10 : 0,
+    avgEnergy: energyArr.length ? Math.round(energyArr.reduce((s, e) => s + e.energy_score, 0) / energyArr.length * 10) / 10 : 0,
     categoryTotals,
-    moodHistory,
+    moodHistory: moodArr.map((e) => ({ date: e.date, mood: e.mood_score })),
     topCategory,
   };
 }
 
-function getMoodBarColor(mood: number) {
+function moodBarColor(mood: number) {
   if (mood >= 8) return COLORS.success;
-  if (mood >= 6) return "#F59E0B";
-  if (mood >= 4) return COLORS.orange;
+  if (mood >= 6) return COLORS.amber;
+  if (mood >= 4) return "#EA580C";
   return COLORS.danger;
 }
 
@@ -103,36 +79,19 @@ export default function StatsScreen() {
   }, [user, period]);
 
   useFocusEffect(useCallback(() => { setIsLoading(true); load(); }, [load]));
+  const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
-
-  const periodLabel = { weekly: "7 Tage", monthly: "30 Tage", yearly: "12 Monate" };
+  const PERIOD_LABELS: Record<Period, string> = { weekly: "7 Tage", monthly: "30 Tage", yearly: "12 Monate" };
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       {/* Header */}
-      <LinearGradient
-        colors={["#FF6330", "#FF8555", "#FFAA80"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          paddingTop: 64,
-          paddingHorizontal: 24,
-          paddingBottom: 24,
-          borderBottomLeftRadius: 28,
-          borderBottomRightRadius: 28,
-        }}
-      >
-        <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -0.5, marginBottom: 16 }}>
+      <View style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+        <Text style={{ fontSize: 24, fontWeight: "800", color: COLORS.ink, letterSpacing: -0.6, marginBottom: 14 }}>
           {t("stats.title")}
         </Text>
-
-        {/* Period selector */}
-        <View style={{ flexDirection: "row", backgroundColor: "rgba(0,0,0,0.12)", borderRadius: 12, padding: 3 }}>
+        {/* Period tabs */}
+        <View style={{ flexDirection: "row", backgroundColor: COLORS.cardAlt, borderRadius: 10, padding: 3 }}>
           {(["weekly", "monthly", "yearly"] as Period[]).map((p) => (
             <TouchableOpacity
               key={p}
@@ -140,216 +99,95 @@ export default function StatsScreen() {
               style={{
                 flex: 1,
                 paddingVertical: 8,
-                borderRadius: 10,
+                borderRadius: 8,
                 alignItems: "center",
-                backgroundColor: period === p ? "rgba(255,255,255,0.9)" : "transparent",
+                backgroundColor: period === p ? COLORS.card : "transparent",
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: period === p ? COLORS.orange : "rgba(255,255,255,0.8)" }}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: period === p ? COLORS.ink : COLORS.muted }}>
                 {t(`stats.${p}`)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-      </LinearGradient>
+      </View>
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={COLORS.orange} size="large" />
+          <ActivityIndicator color={COLORS.ink} />
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.muted} />}
         >
-          {stats && stats.totalEntries === 0 ? (
+          {!stats || stats.totalEntries === 0 ? (
             <View style={{ alignItems: "center", paddingTop: 60 }}>
-              <Text style={{ fontSize: 44, marginBottom: 16 }}>📊</Text>
-              <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.text, marginBottom: 8 }}>
-                {t("stats.noData")}
-              </Text>
-              <Text style={{ fontSize: 14, color: COLORS.subtle, textAlign: "center" }}>
+              <Text style={{ fontSize: 36, marginBottom: 12 }}>📊</Text>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.ink, marginBottom: 6 }}>{t("stats.noData")}</Text>
+              <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: "center" }}>
                 Schreibe mehr Einträge um Statistiken zu sehen.
               </Text>
             </View>
-          ) : stats ? (
+          ) : (
             <>
-              {/* Hero stat cards */}
+              {/* Key metrics row */}
               <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-                <View
-                  style={{
-                    flex: 1,
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    shadowColor: COLORS.orange,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 10,
-                    elevation: 4,
-                  }}
-                >
-                  <LinearGradient colors={["#FF6330", "#FF8555"]} style={{ padding: 18, alignItems: "center" }}>
-                    <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff" }}>{stats.totalEntries}</Text>
-                    <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2, fontWeight: "600" }}>
-                      {t("stats.totalEntries")}
-                    </Text>
-                  </LinearGradient>
+                <View style={{ flex: 1, backgroundColor: COLORS.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border }}>
+                  <Text style={{ fontSize: 28, fontWeight: "800", color: COLORS.ink, letterSpacing: -0.5 }}>{stats.totalEntries}</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>Einträge</Text>
                 </View>
-                <View
-                  style={{
-                    flex: 1,
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    shadowColor: "#F59E0B",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 10,
-                    elevation: 4,
-                  }}
-                >
-                  <LinearGradient colors={["#F59E0B", "#FBBF24"]} style={{ padding: 18, alignItems: "center" }}>
-                    <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff" }}>🔥 {streak}</Text>
-                    <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2, fontWeight: "600" }}>
-                      {t("stats.streak")}
-                    </Text>
-                  </LinearGradient>
+                <View style={{ flex: 1, backgroundColor: streak > 0 ? COLORS.amberBg : COLORS.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: streak > 0 ? "#FCD34D" : COLORS.border }}>
+                  <Text style={{ fontSize: 28, fontWeight: "800", color: streak > 0 ? COLORS.amber : COLORS.ink, letterSpacing: -0.5 }}>
+                    {streak > 0 ? `🔥 ${streak}` : streak}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>Tage Streak</Text>
                 </View>
               </View>
-
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: COLORS.card,
-                    borderRadius: 18,
-                    padding: 18,
-                    alignItems: "center",
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }}
-                >
-                  <Text style={{ fontSize: 28 }}>😊</Text>
-                  <Text style={{ fontSize: 26, fontWeight: "800", color: COLORS.success, marginTop: 4 }}>
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
+                <View style={{ flex: 1, backgroundColor: stats.avgMood >= 7 ? COLORS.successBg : COLORS.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: stats.avgMood >= 7 ? "#86EFAC" : COLORS.border }}>
+                  <Text style={{ fontSize: 28, fontWeight: "800", color: stats.avgMood >= 7 ? COLORS.success : COLORS.ink, letterSpacing: -0.5 }}>
                     {stats.avgMood || "–"}
                   </Text>
-                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>
-                    {t("stats.avgMood")}
-                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>⌀ Stimmung</Text>
                 </View>
-                <View
-                  style={{
-                    flex: 1,
-                    backgroundColor: COLORS.card,
-                    borderRadius: 18,
-                    padding: 18,
-                    alignItems: "center",
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }}
-                >
-                  <Text style={{ fontSize: 28 }}>⚡</Text>
-                  <Text style={{ fontSize: 26, fontWeight: "800", color: "#3B82F6", marginTop: 4 }}>
-                    {stats.avgEnergy || "–"}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>
-                    {t("stats.avgEnergy")}
-                  </Text>
+                <View style={{ flex: 1, backgroundColor: COLORS.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border }}>
+                  <Text style={{ fontSize: 28, fontWeight: "800", color: COLORS.ink, letterSpacing: -0.5 }}>{stats.avgEnergy || "–"}</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2, fontWeight: "600" }}>⌀ Energie</Text>
                 </View>
               </View>
 
               {/* Mood chart */}
               {stats.moodHistory.length > 1 && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.card,
-                    borderRadius: 20,
-                    padding: 20,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "800", color: COLORS.text }}>
-                      {t("stats.moodTrend")}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: COLORS.muted }}>{periodLabel[period]}</Text>
+                <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "800", color: COLORS.ink }}>Stimmungsverlauf</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.muted }}>{PERIOD_LABELS[period]}</Text>
                   </View>
-
-                  {/* Y-axis labels + bars */}
-                  <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-                    {/* Y labels */}
-                    <View style={{ justifyContent: "space-between", height: 80, marginRight: 6, paddingBottom: 2 }}>
-                      {[10, 5, 1].map((n) => (
+                  <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
+                    <View style={{ width: 14, height: 72, justifyContent: "space-between", paddingBottom: 1 }}>
+                      {[10, 5].map((n) => (
                         <Text key={n} style={{ fontSize: 9, color: COLORS.muted, textAlign: "right" }}>{n}</Text>
                       ))}
                     </View>
-                    {/* Bars */}
-                    <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-end", gap: 3, height: 80 }}>
-                      {stats.moodHistory.slice(-14).map((item, index) => (
-                        <View
-                          key={index}
-                          style={{ flex: 1, justifyContent: "flex-end", height: 80 }}
-                        >
-                          <View
-                            style={{
-                              height: Math.max(4, (item.mood / 10) * 72),
-                              backgroundColor: getMoodBarColor(item.mood),
-                              borderRadius: 4,
-                            }}
-                          />
-                        </View>
-                      ))}
-                    </View>
+                    {stats.moodHistory.slice(-21).map((item, i) => (
+                      <View key={i} style={{ flex: 1, height: 72, justifyContent: "flex-end" }}>
+                        <View style={{ height: Math.max(3, (item.mood / 10) * 68), backgroundColor: moodBarColor(item.mood), borderRadius: 3 }} />
+                      </View>
+                    ))}
                   </View>
-
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
-                    <Text style={{ fontSize: 10, color: COLORS.muted }}>
-                      {stats.moodHistory.slice(-14)[0]?.date.slice(5)}
-                    </Text>
-                    <Text style={{ fontSize: 10, color: COLORS.muted }}>
-                      {stats.moodHistory.slice(-1)[0]?.date.slice(5)}
-                    </Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 5 }}>
+                    <Text style={{ fontSize: 10, color: COLORS.muted }}>{stats.moodHistory.slice(-21)[0]?.date.slice(5)}</Text>
+                    <Text style={{ fontSize: 10, color: COLORS.muted }}>{stats.moodHistory.slice(-1)[0]?.date.slice(5)}</Text>
                   </View>
                 </View>
               )}
 
               {/* Category breakdown */}
               {Object.keys(stats.categoryTotals).length > 0 && (
-                <View
-                  style={{
-                    backgroundColor: COLORS.card,
-                    borderRadius: 20,
-                    padding: 20,
-                    marginBottom: 16,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 8,
-                    elevation: 2,
-                  }}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: "800", color: COLORS.text, marginBottom: 16 }}>
-                    {t("stats.categoryBreakdown")}
-                  </Text>
+                <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: COLORS.ink, marginBottom: 16 }}>Kategorien</Text>
                   {Object.entries(stats.categoryTotals)
                     .sort(([, a], [, b]) => b - a)
                     .map(([cat, count]) => {
@@ -357,39 +195,20 @@ export default function StatsScreen() {
                       const total = Object.values(stats.categoryTotals).reduce((a, b) => a + b, 0);
                       const pct = Math.round((count / total) * 100);
                       return (
-                        <View key={cat} style={{ marginBottom: 14 }}>
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <View
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: 8,
-                                  backgroundColor: cfg.color + "18",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <Ionicons name={cfg.icon as any} size={14} color={cfg.color} />
+                        <View key={cat} style={{ marginBottom: 13 }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                              <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: cfg.color + "16", alignItems: "center", justifyContent: "center" }}>
+                                <Ionicons name={cfg.icon as any} size={13} color={cfg.color} />
                               </View>
-                              <Text style={{ fontSize: 14, color: COLORS.text, fontWeight: "700" }}>
+                              <Text style={{ fontSize: 13, color: COLORS.ink, fontWeight: "700" }}>
                                 {cfg[`label_${i18n.language as "de" | "en"}`]}
                               </Text>
                             </View>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                              <Text style={{ fontSize: 12, color: COLORS.muted }}>{count}x</Text>
-                              <Text style={{ fontSize: 13, color: cfg.color, fontWeight: "700" }}>{pct}%</Text>
-                            </View>
+                            <Text style={{ fontSize: 12, color: COLORS.muted, fontWeight: "600" }}>{pct}%</Text>
                           </View>
-                          <View style={{ height: 8, backgroundColor: COLORS.bg, borderRadius: 4, overflow: "hidden" }}>
-                            <View
-                              style={{
-                                height: "100%",
-                                width: `${pct}%`,
-                                backgroundColor: cfg.color,
-                                borderRadius: 4,
-                              }}
-                            />
+                          <View style={{ height: 5, backgroundColor: COLORS.cardAlt, borderRadius: 3, overflow: "hidden" }}>
+                            <View style={{ height: "100%", width: `${pct}%`, backgroundColor: cfg.color, borderRadius: 3 }} />
                           </View>
                         </View>
                       );
@@ -397,50 +216,42 @@ export default function StatsScreen() {
                 </View>
               )}
 
-              {/* Top category highlight */}
+              {/* Top category */}
               {stats.topCategory && (
                 <View
                   style={{
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    shadowColor: COLORS.orange,
-                    shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: 0.15,
-                    shadowRadius: 8,
-                    elevation: 3,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    backgroundColor: COLORS.ink,
+                    borderRadius: 16,
+                    padding: 18,
                   }}
                 >
-                  <LinearGradient
-                    colors={[CATEGORY_CONFIG[stats.topCategory as CategoryName].color, CATEGORY_CONFIG[stats.topCategory as CategoryName].color + "CC"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ padding: 18, flexDirection: "row", alignItems: "center", gap: 12 }}
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      backgroundColor: "rgba(255,255,255,0.12)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
-                    <View
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        backgroundColor: "rgba(255,255,255,0.25)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons name={CATEGORY_CONFIG[stats.topCategory as CategoryName].icon as any} size={22} color="#fff" />
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Dein Schwerpunkt
-                      </Text>
-                      <Text style={{ fontSize: 18, color: "#fff", fontWeight: "800" }}>
-                        {CATEGORY_CONFIG[stats.topCategory as CategoryName][`label_${i18n.language as "de" | "en"}`]}
-                      </Text>
-                    </View>
-                  </LinearGradient>
+                    <Ionicons name={CATEGORY_CONFIG[stats.topCategory as CategoryName].icon as any} size={20} color="#fff" />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                      Dein Schwerpunkt
+                    </Text>
+                    <Text style={{ fontSize: 17, fontWeight: "800", color: "#fff", marginTop: 2 }}>
+                      {CATEGORY_CONFIG[stats.topCategory as CategoryName][`label_${i18n.language as "de" | "en"}`]}
+                    </Text>
+                  </View>
                 </View>
               )}
             </>
-          ) : null}
+          )}
         </ScrollView>
       )}
     </View>
