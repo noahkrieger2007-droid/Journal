@@ -30,6 +30,13 @@ function formatDate(lang: string): string {
   });
 }
 
+function getMoodEmoji(score: number) {
+  if (score >= 8) return "😄";
+  if (score >= 6) return "🙂";
+  if (score >= 4) return "😐";
+  return "😔";
+}
+
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
@@ -60,6 +67,12 @@ export default function HomeScreen() {
   const firstName = user?.name?.split(" ")[0] || "du";
   const recentEntries = entries.slice(0, 3);
 
+  // Derive a simple AI insight from recent entries
+  const latestWithSummary = entries.find((e) => e.ai_summary);
+  const aiInsight = latestWithSummary?.ai_summary
+    ? latestWithSummary.ai_summary.slice(0, 120) + (latestWithSummary.ai_summary.length > 120 ? "…" : "")
+    : null;
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <ScrollView
@@ -68,21 +81,29 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.violet}
+            tintColor={COLORS.orange}
           />
         }
       >
-        {/* Header */}
+        {/* Header with gradient */}
         <LinearGradient
-          colors={["#141829", "#0A0F1E"]}
-          style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 32 }}
+          colors={["#FF6330", "#FF8555", "#FFAA80"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: 64,
+            paddingHorizontal: 24,
+            paddingBottom: 36,
+            borderBottomLeftRadius: 32,
+            borderBottomRightRadius: 32,
+          }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, color: COLORS.subtle, marginBottom: 4 }}>
+              <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginBottom: 4 }}>
                 {formatDate(i18n.language)}
               </Text>
-              <Text style={{ fontSize: 28, fontWeight: "800", color: COLORS.text, letterSpacing: -0.5 }}>
+              <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -0.5 }}>
                 {getGreeting(t)},{"\n"}{firstName} 👋
               </Text>
             </View>
@@ -92,63 +113,40 @@ export default function HomeScreen() {
                 width: 48,
                 height: 48,
                 borderRadius: 14,
-                backgroundColor: COLORS.violet,
+                backgroundColor: "rgba(255,255,255,0.3)",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.5)",
                 alignItems: "center",
                 justifyContent: "center",
-                shadowColor: COLORS.violet,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 6,
               }}
             >
-              <Ionicons name="add" size={24} color="#fff" />
+              <Ionicons name="add" size={26} color="#fff" />
             </TouchableOpacity>
+          </View>
+
+          {/* Streak pill */}
+          <View
+            style={{
+              marginTop: 20,
+              backgroundColor: "rgba(255,255,255,0.2)",
+              borderRadius: 14,
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "flex-start",
+              gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>🔥</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+              {streak} {streak === 1 ? "Tag" : "Tage"} am Stück
+            </Text>
+            {streak >= 7 && <Text style={{ fontSize: 16 }}>⚡</Text>}
           </View>
         </LinearGradient>
 
-        <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
-          {/* Streak card */}
-          <View
-            style={{
-              backgroundColor: COLORS.card,
-              borderRadius: 20,
-              padding: 20,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: streak > 0 ? COLORS.amber + "40" : COLORS.border,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 14,
-                backgroundColor: COLORS.amber + "20",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 16,
-              }}
-            >
-              <Text style={{ fontSize: 24 }}>🔥</Text>
-            </View>
-            <View>
-              <Text style={{ fontSize: 32, fontWeight: "800", color: COLORS.amber }}>
-                {streak}
-              </Text>
-              <Text style={{ fontSize: 13, color: COLORS.subtle }}>
-                {t("home.streak")}
-              </Text>
-            </View>
-            {streak >= 7 && (
-              <View style={{ marginLeft: "auto" }}>
-                <Text style={{ fontSize: 28 }}>⚡</Text>
-              </View>
-            )}
-          </View>
-
+        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           {/* Today's entry or quick add */}
           {todaysEntry ? (
             <TouchableOpacity
@@ -158,40 +156,38 @@ export default function HomeScreen() {
                 borderRadius: 20,
                 padding: 20,
                 marginBottom: 16,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.08,
+                shadowRadius: 10,
+                elevation: 3,
                 borderWidth: 1,
-                borderColor: COLORS.violet + "40",
+                borderColor: COLORS.border,
               }}
             >
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: COLORS.success,
-                    }}
-                  />
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: COLORS.success, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success }} />
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: COLORS.success, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     Heute
                   </Text>
                 </View>
                 {todaysEntry.mood_score && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Text style={{ fontSize: 13, color: COLORS.subtle }}>Stimmung</Text>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.violet }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontSize: 18 }}>{getMoodEmoji(todaysEntry.mood_score)}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.orange }}>
                       {todaysEntry.mood_score}/10
                     </Text>
                   </View>
                 )}
               </View>
               {todaysEntry.highlights && (
-                <Text style={{ fontSize: 16, color: COLORS.text, fontWeight: "600", marginBottom: 8 }}>
+                <Text style={{ fontSize: 16, color: COLORS.text, fontWeight: "700", marginBottom: 6 }}>
                   {todaysEntry.highlights}
                 </Text>
               )}
               {todaysEntry.ai_summary && (
-                <Text style={{ fontSize: 14, color: COLORS.subtle, lineHeight: 20 }} numberOfLines={3}>
+                <Text style={{ fontSize: 14, color: COLORS.subtle, lineHeight: 21 }} numberOfLines={3}>
                   {todaysEntry.ai_summary}
                 </Text>
               )}
@@ -203,7 +199,7 @@ export default function HomeScreen() {
                       <View
                         key={c.id}
                         style={{
-                          backgroundColor: cfg.color + "20",
+                          backgroundColor: cfg.color + "18",
                           borderRadius: 8,
                           paddingHorizontal: 10,
                           paddingVertical: 4,
@@ -212,8 +208,8 @@ export default function HomeScreen() {
                           gap: 4,
                         }}
                       >
-                        <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
-                        <Text style={{ fontSize: 12, color: cfg.color, fontWeight: "600" }}>
+                        <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
+                        <Text style={{ fontSize: 11, color: cfg.color, fontWeight: "700" }}>
                           {cfg[`label_${i18n.language as "de" | "en"}`]}
                         </Text>
                       </View>
@@ -221,6 +217,9 @@ export default function HomeScreen() {
                   })}
                 </View>
               )}
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 10 }}>
+                <Text style={{ fontSize: 12, color: COLORS.muted }}>Tippen für Details →</Text>
+              </View>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -230,43 +229,102 @@ export default function HomeScreen() {
                 borderRadius: 20,
                 padding: 24,
                 marginBottom: 16,
-                borderWidth: 1,
-                borderColor: COLORS.border,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.07,
+                shadowRadius: 10,
+                elevation: 3,
+                borderWidth: 1.5,
+                borderColor: COLORS.orange + "40",
                 borderStyle: "dashed",
                 alignItems: "center",
               }}
             >
-              <View
+              <LinearGradient
+                colors={[COLORS.orange + "20", COLORS.orange + "10"]}
                 style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 14,
-                  backgroundColor: COLORS.violet + "20",
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 12,
                 }}
               >
-                <Ionicons name="create-outline" size={24} color={COLORS.violet} />
-              </View>
+                <Ionicons name="create-outline" size={26} color={COLORS.orange} />
+              </LinearGradient>
               <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 4 }}>
                 {t("home.noEntryToday")}
               </Text>
-              <Text style={{ fontSize: 13, color: COLORS.subtle }}>
+              <Text style={{ fontSize: 13, color: COLORS.muted }}>
                 {t("home.quickAdd")} →
               </Text>
             </TouchableOpacity>
+          )}
+
+          {/* AI Insight card */}
+          {aiInsight && (
+            <View
+              style={{
+                borderRadius: 20,
+                marginBottom: 16,
+                overflow: "hidden",
+                shadowColor: COLORS.orange,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 12,
+                elevation: 4,
+              }}
+            >
+              <LinearGradient
+                colors={["#FF6330", "#FF8C5A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 20 }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      backgroundColor: "rgba(255,255,255,0.25)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>✨</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: "rgba(255,255,255,0.9)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    NOVA Einblick
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 15, color: "#fff", lineHeight: 22, fontWeight: "500" }}>
+                  {aiInsight}
+                </Text>
+                {latestWithSummary && (
+                  <TouchableOpacity
+                    onPress={() => router.push(`/entry/${latestWithSummary.id}`)}
+                    style={{ marginTop: 12 }}
+                  >
+                    <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: "600" }}>
+                      Vollständigen Eintrag lesen →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </LinearGradient>
+            </View>
           )}
 
           {/* Recent entries */}
           {recentEntries.length > 0 && (
             <View style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.text }}>
+                <Text style={{ fontSize: 17, fontWeight: "800", color: COLORS.text }}>
                   Letzte Einträge
                 </Text>
                 <TouchableOpacity onPress={() => router.push("/(tabs)/entries")}>
-                  <Text style={{ fontSize: 13, color: COLORS.violet, fontWeight: "600" }}>Alle →</Text>
+                  <Text style={{ fontSize: 13, color: COLORS.orange, fontWeight: "700" }}>Alle →</Text>
                 </TouchableOpacity>
               </View>
               {recentEntries.map((entry) => (
@@ -278,14 +336,34 @@ export default function HomeScreen() {
                     borderRadius: 16,
                     padding: 16,
                     marginBottom: 8,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
                     flexDirection: "row",
                     alignItems: "center",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 6,
+                    elevation: 2,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
                   }}
                 >
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      backgroundColor: COLORS.bg,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>
+                      {entry.mood_score ? getMoodEmoji(entry.mood_score) : "📝"}
+                    </Text>
+                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 2 }}>
                       {new Date(entry.date).toLocaleDateString(
                         i18n.language === "de" ? "de-DE" : "en-US",
                         { weekday: "short", day: "numeric", month: "short" }
@@ -295,14 +373,7 @@ export default function HomeScreen() {
                       {entry.highlights || entry.ai_summary?.slice(0, 60) || entry.raw_text.slice(0, 60)}
                     </Text>
                   </View>
-                  {entry.mood_score && (
-                    <View style={{ alignItems: "center", marginLeft: 12 }}>
-                      <Text style={{ fontSize: 18 }}>
-                        {entry.mood_score >= 8 ? "😊" : entry.mood_score >= 5 ? "🙂" : "😐"}
-                      </Text>
-                    </View>
-                  )}
-                  <Ionicons name="chevron-forward" size={16} color={COLORS.muted} style={{ marginLeft: 8 }} />
+                  <Ionicons name="chevron-forward" size={16} color={COLORS.muted} />
                 </TouchableOpacity>
               ))}
             </View>

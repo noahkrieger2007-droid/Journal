@@ -44,12 +44,17 @@ export default function TabsLayout() {
           height: 84,
           paddingBottom: 24,
           paddingTop: 10,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          elevation: 10,
         },
-        tabBarActiveTintColor: COLORS.violet,
+        tabBarActiveTintColor: COLORS.orange,
         tabBarInactiveTintColor: COLORS.muted,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
+          fontWeight: "700",
         },
       }}
     >

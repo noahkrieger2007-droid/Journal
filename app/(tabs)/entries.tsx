@@ -16,12 +16,27 @@ import { COLORS, CATEGORY_CONFIG } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import type { JournalEntry } from "@/types";
 
+function getMoodEmoji(score: number) {
+  if (score >= 8) return "😄";
+  if (score >= 6) return "🙂";
+  if (score >= 4) return "😐";
+  return "😔";
+}
+
+function getMoodColor(score: number) {
+  if (score >= 8) return COLORS.success;
+  if (score >= 6) return "#F59E0B";
+  if (score >= 4) return COLORS.orange;
+  return COLORS.danger;
+}
+
 export default function EntriesScreen() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
-  const { entries, fetchEntries, isLoading } = useJournalStore();
+  const { entries, fetchEntries } = useJournalStore();
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -55,111 +70,139 @@ export default function EntriesScreen() {
         onPress={() => router.push(`/entry/${item.id}`)}
         style={{
           backgroundColor: COLORS.card,
-          borderRadius: 16,
+          borderRadius: 18,
           padding: 16,
           marginBottom: 10,
-          marginHorizontal: 24,
+          marginHorizontal: 20,
           borderWidth: 1,
           borderColor: COLORS.border,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2,
         }}
-        activeOpacity={0.7}
+        activeOpacity={0.75}
       >
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-          <View>
-            <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 2, textTransform: "capitalize" }}>
-              {dateStr}
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+          {/* Mood circle */}
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              backgroundColor: item.mood_score ? getMoodColor(item.mood_score) + "18" : COLORS.bg,
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Text style={{ fontSize: 22 }}>
+              {item.mood_score ? getMoodEmoji(item.mood_score) : "📝"}
             </Text>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <Text style={{ fontSize: 12, color: COLORS.muted, textTransform: "capitalize", flex: 1 }}>
+                {dateStr}
+              </Text>
+              {item.mood_score && (
+                <Text style={{ fontSize: 13, fontWeight: "700", color: getMoodColor(item.mood_score) }}>
+                  {item.mood_score}/10
+                </Text>
+              )}
+            </View>
+
             {item.highlights && (
-              <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text }} numberOfLines={1}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: COLORS.text, marginBottom: 4 }} numberOfLines={1}>
                 {item.highlights}
               </Text>
             )}
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            {item.mood_score && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="happy-outline" size={13} color={COLORS.violet} />
-                <Text style={{ fontSize: 13, color: COLORS.violet, fontWeight: "700" }}>
-                  {item.mood_score}
+
+            {item.ai_summary && (
+              <Text style={{ fontSize: 13, color: COLORS.subtle, lineHeight: 19 }} numberOfLines={2}>
+                {item.ai_summary}
+              </Text>
+            )}
+
+            {item.categories && item.categories.length > 0 && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
+                {item.categories.slice(0, 3).map((c) => {
+                  const cfg = CATEGORY_CONFIG[c.category_name];
+                  return (
+                    <View
+                      key={c.id}
+                      style={{
+                        backgroundColor: cfg.color + "18",
+                        borderRadius: 6,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 3,
+                      }}
+                    >
+                      <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
+                      <Text style={{ fontSize: 11, color: cfg.color, fontWeight: "700" }}>
+                        {cfg[`label_${i18n.language as "de" | "en"}`]}
+                      </Text>
+                    </View>
+                  );
+                })}
+                {item.categories.length > 3 && (
+                  <View style={{ backgroundColor: COLORS.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: "600" }}>+{item.categories.length - 3}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {(item.processing_status === "pending" || item.processing_status === "processing") && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.amber }} />
+                <Text style={{ fontSize: 11, color: COLORS.amber, fontWeight: "600" }}>
+                  {t("entry.processingPending")}
                 </Text>
               </View>
             )}
-            {item.energy_score && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="flash-outline" size={13} color={COLORS.amber} />
-                <Text style={{ fontSize: 13, color: COLORS.amber, fontWeight: "700" }}>
-                  {item.energy_score}
-                </Text>
-              </View>
-            )}
           </View>
+
+          <Ionicons name="chevron-forward" size={16} color={COLORS.muted} style={{ marginTop: 4 }} />
         </View>
-
-        {item.ai_summary && (
-          <Text style={{ fontSize: 13, color: COLORS.subtle, lineHeight: 19 }} numberOfLines={2}>
-            {item.ai_summary}
-          </Text>
-        )}
-
-        {item.categories && item.categories.length > 0 && (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-            {item.categories.slice(0, 4).map((c) => {
-              const cfg = CATEGORY_CONFIG[c.category_name];
-              return (
-                <View
-                  key={c.id}
-                  style={{
-                    backgroundColor: cfg.color + "20",
-                    borderRadius: 6,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <Ionicons name={cfg.icon as any} size={10} color={cfg.color} />
-                  <Text style={{ fontSize: 11, color: cfg.color, fontWeight: "600" }}>
-                    {cfg[`label_${i18n.language as "de" | "en"}`]}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {item.processing_status === "pending" || item.processing_status === "processing" ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.amber }} />
-            <Text style={{ fontSize: 12, color: COLORS.amber }}>
-              {t("entry.processingPending")}
-            </Text>
-          </View>
-        ) : null}
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      {/* Header */}
       <LinearGradient
-        colors={["#141829", "#0A0F1E"]}
-        style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 20 }}
+        colors={["#FF6330", "#FF8555", "#FFAA80"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          paddingTop: 64,
+          paddingHorizontal: 24,
+          paddingBottom: 24,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+        }}
       >
-        <Text style={{ fontSize: 26, fontWeight: "800", color: COLORS.text, letterSpacing: -0.5, marginBottom: 16 }}>
+        <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff", letterSpacing: -0.5, marginBottom: 16 }}>
           {t("entries.title")}
         </Text>
 
-        {/* Search */}
+        {/* Search bar */}
         <View
           style={{
-            backgroundColor: COLORS.card2,
+            backgroundColor: "rgba(255,255,255,0.9)",
             borderRadius: 14,
-            borderWidth: 1,
-            borderColor: COLORS.border,
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 14,
+            borderWidth: 1,
+            borderColor: focused ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)",
           }}
         >
           <Ionicons name="search-outline" size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
@@ -169,7 +212,8 @@ export default function EntriesScreen() {
             placeholderTextColor={COLORS.muted}
             value={search}
             onChangeText={setSearch}
-            keyboardAppearance="dark"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}>
@@ -179,28 +223,54 @@ export default function EntriesScreen() {
         </View>
       </LinearGradient>
 
+      {/* Count chip */}
+      {filtered.length > 0 && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4 }}>
+          <Text style={{ fontSize: 13, color: COLORS.muted, fontWeight: "600" }}>
+            {filtered.length} {filtered.length === 1 ? "Eintrag" : "Einträge"}
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={filtered}
         renderItem={renderEntry}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.violet}
+            tintColor={COLORS.orange}
           />
         }
         ListEmptyComponent={
           <View style={{ alignItems: "center", paddingTop: 80, paddingHorizontal: 48 }}>
-            <Text style={{ fontSize: 40, marginBottom: 16 }}>📖</Text>
+            <Text style={{ fontSize: 44, marginBottom: 16 }}>📖</Text>
             <Text style={{ fontSize: 17, fontWeight: "700", color: COLORS.text, marginBottom: 8 }}>
               {t("entries.noEntries")}
             </Text>
-            <Text style={{ fontSize: 14, color: COLORS.subtle, textAlign: "center" }}>
+            <Text style={{ fontSize: 14, color: COLORS.subtle, textAlign: "center", lineHeight: 22 }}>
               {t("entries.startJourney")}
             </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/journal")}
+              style={{
+                marginTop: 20,
+                borderRadius: 14,
+                overflow: "hidden",
+              }}
+            >
+              <LinearGradient
+                colors={["#FF6330", "#FF8555"]}
+                style={{ paddingVertical: 14, paddingHorizontal: 28 }}
+              >
+                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+                  Ersten Eintrag schreiben →
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         }
       />

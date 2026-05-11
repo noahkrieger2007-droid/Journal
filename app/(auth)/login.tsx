@@ -24,6 +24,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) return;
@@ -39,108 +40,79 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={["#0A0F1E", "#141829", "#0A0F1E"]}
-      style={{ flex: 1 }}
-    >
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={{ paddingHorizontal: 32, paddingVertical: 48 }}>
-            {/* Logo */}
-            <View style={{ alignItems: "center", marginBottom: 48 }}>
+          {/* Warm gradient header */}
+          <LinearGradient
+            colors={["#FF6330", "#FF8555", "#FFAA80"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              paddingTop: 80,
+              paddingBottom: 48,
+              paddingHorizontal: 32,
+              borderBottomLeftRadius: 40,
+              borderBottomRightRadius: 40,
+            }}
+          >
+            <View style={{ alignItems: "center" }}>
               <View
                 style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 20,
-                  backgroundColor: COLORS.violet,
+                  width: 76,
+                  height: 76,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(255,255,255,0.25)",
+                  borderWidth: 2,
+                  borderColor: "rgba(255,255,255,0.5)",
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 20,
-                  shadowColor: COLORS.violet,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 16,
-                  elevation: 10,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 32,
-                    fontWeight: "800",
-                    color: "#fff",
-                    letterSpacing: -1,
-                  }}
-                >
-                  N
-                </Text>
+                <Text style={{ fontSize: 36, fontWeight: "800", color: "#fff" }}>N</Text>
               </View>
-              <Text
-                style={{
-                  fontSize: 30,
-                  fontWeight: "800",
-                  color: COLORS.text,
-                  letterSpacing: -0.5,
-                }}
-              >
+              <Text style={{ fontSize: 32, fontWeight: "800", color: "#fff", letterSpacing: -0.5 }}>
                 {t("auth.loginTitle")}
               </Text>
-              <Text
-                style={{
-                  fontSize: 15,
-                  color: COLORS.subtle,
-                  marginTop: 8,
-                  textAlign: "center",
-                }}
-              >
+              <Text style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", marginTop: 8, textAlign: "center" }}>
                 {t("auth.loginSubtitle")}
               </Text>
             </View>
+          </LinearGradient>
 
-            {/* Email */}
+          <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
+            {/* Email field */}
             <View style={{ marginBottom: 16 }}>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: COLORS.subtle,
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.subtle, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.6 }}>
                 {t("auth.email")}
               </Text>
               <View
                 style={{
                   backgroundColor: COLORS.card,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: focusedField === "email" ? COLORS.orange : COLORS.border,
                   flexDirection: "row",
                   alignItems: "center",
                   paddingHorizontal: 16,
+                  shadowColor: focusedField === "email" ? COLORS.orange : "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: focusedField === "email" ? 0.15 : 0.04,
+                  shadowRadius: 8,
+                  elevation: 2,
                 }}
               >
-                <Ionicons
-                  name="mail-outline"
-                  size={18}
-                  color={COLORS.muted}
-                  style={{ marginRight: 10 }}
-                />
+                <Ionicons name="mail-outline" size={18} color={focusedField === "email" ? COLORS.orange : COLORS.muted} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={{
-                    flex: 1,
-                    color: COLORS.text,
-                    fontSize: 16,
-                    paddingVertical: 16,
-                  }}
+                  style={{ flex: 1, color: COLORS.text, fontSize: 16, paddingVertical: 16 }}
                   placeholder={t("auth.emailPlaceholder")}
                   placeholderTextColor={COLORS.muted}
                   value={email}
@@ -148,60 +120,46 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
             </View>
 
-            {/* Password */}
+            {/* Password field */}
             <View style={{ marginBottom: 32 }}>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: COLORS.subtle,
-                  marginBottom: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: COLORS.subtle, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.6 }}>
                 {t("auth.password")}
               </Text>
               <View
                 style={{
                   backgroundColor: COLORS.card,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: focusedField === "password" ? COLORS.orange : COLORS.border,
                   flexDirection: "row",
                   alignItems: "center",
                   paddingHorizontal: 16,
+                  shadowColor: focusedField === "password" ? COLORS.orange : "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: focusedField === "password" ? 0.15 : 0.04,
+                  shadowRadius: 8,
+                  elevation: 2,
                 }}
               >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={18}
-                  color={COLORS.muted}
-                  style={{ marginRight: 10 }}
-                />
+                <Ionicons name="lock-closed-outline" size={18} color={focusedField === "password" ? COLORS.orange : COLORS.muted} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={{
-                    flex: 1,
-                    color: COLORS.text,
-                    fontSize: 16,
-                    paddingVertical: 16,
-                  }}
+                  style={{ flex: 1, color: COLORS.text, fontSize: 16, paddingVertical: 16 }}
                   placeholder={t("auth.passwordPlaceholder")}
                   placeholderTextColor={COLORS.muted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={18}
-                    color={COLORS.muted}
-                  />
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={COLORS.muted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -211,11 +169,9 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={isLoading}
               style={{
-                backgroundColor: COLORS.violet,
-                borderRadius: 14,
-                paddingVertical: 18,
-                alignItems: "center",
-                shadowColor: COLORS.violet,
+                borderRadius: 16,
+                overflow: "hidden",
+                shadowColor: COLORS.orange,
                 shadowOffset: { width: 0, height: 6 },
                 shadowOpacity: 0.35,
                 shadowRadius: 12,
@@ -223,42 +179,35 @@ export default function LoginScreen() {
                 marginBottom: 24,
               }}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 17,
-                    fontWeight: "700",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  {t("auth.login")}
-                </Text>
-              )}
+              <LinearGradient
+                colors={["#FF6330", "#FF8555"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ paddingVertical: 18, alignItems: "center" }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontSize: 17, fontWeight: "700", letterSpacing: 0.3 }}>
+                    {t("auth.login")}
+                  </Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Register link */}
             <View style={{ flexDirection: "row", justifyContent: "center" }}>
-              <Text style={{ color: COLORS.muted, fontSize: 14 }}>
-                {t("auth.noAccount")}{" "}
-              </Text>
+              <Text style={{ color: COLORS.muted, fontSize: 14 }}>{t("auth.noAccount")} </Text>
               <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-                <Text
-                  style={{
-                    color: COLORS.violet,
-                    fontSize: 14,
-                    fontWeight: "600",
-                  }}
-                >
+                <Text style={{ color: COLORS.orange, fontSize: 14, fontWeight: "700" }}>
                   {t("auth.register")}
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <View style={{ height: 40 }} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }

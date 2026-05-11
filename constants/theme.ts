@@ -1,17 +1,21 @@
 export const COLORS = {
-  bg: "#0A0F1E",
-  card: "#141829",
-  card2: "#1A2035",
-  violet: "#7C3AED",
-  violetLight: "#9D5FF3",
+  bg: "#F9F6F0",
+  card: "#FFFFFF",
+  card2: "#F4EFE8",
+  orange: "#FF6330",
+  orangeLight: "#FF8555",
+  orangeGlow: "#FF633020",
   amber: "#F59E0B",
   amberLight: "#FCD34D",
-  text: "#FFFFFF",
-  muted: "#64748B",
-  subtle: "#94A3B8",
-  border: "#1E2A45",
+  text: "#1C1410",
+  muted: "#AFA098",
+  subtle: "#7A6960",
+  border: "#EDE7DF",
   success: "#22C55E",
   danger: "#EF4444",
+  // Legacy aliases used in existing code
+  violet: "#FF6330",
+  violetLight: "#FF8555",
 } as const;
 
 export const CATEGORY_CONFIG = {
@@ -48,7 +52,7 @@ export const CATEGORY_CONFIG = {
   MINDSET: {
     label_de: "Mindset",
     label_en: "Mindset",
-    icon: "brain-outline",
+    icon: "bulb-outline",
     color: "#EC4899",
   },
   GOALS: {
