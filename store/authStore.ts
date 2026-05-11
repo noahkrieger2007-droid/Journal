@@ -26,10 +26,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       data: { session },
     } = await supabase.auth.getSession();
     if (session) {
-      const profile = await fetchProfile(session.user.id);
+      let profile = await fetchProfile(session.user.id);
+      if (!profile) {
+        await supabase.from("users").upsert({
+          id: session.user.id,
+          email: session.user.email ?? `anon_${session.user.id}@nova.app`,
+          name: "Ich",
+          preferred_language: "de",
+          face_id_enabled: false,
+        });
+        profile = await fetchProfile(session.user.id);
+      }
       set({ session, user: profile, isLoading: false });
     } else {
-      set({ isLoading: false });
+      // Auto sign-in anonymously so app works without login
+      const { data: anonData } = await supabase.auth.signInAnonymously();
+      if (anonData.session) {
+        await supabase.from("users").upsert({
+          id: anonData.session.user.id,
+          email: `anon_${anonData.session.user.id}@nova.app`,
+          name: "Ich",
+          preferred_language: "de",
+          face_id_enabled: false,
+        });
+        const profile = await fetchProfile(anonData.session.user.id);
+        set({ session: anonData.session, user: profile, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
     }
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -51,8 +75,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (data.session) {
       let profile = await fetchProfile(data.session.user.id);
       if (!profile) {
-        // Profile missing (email confirmation required during signup, RLS blocked insert)
-        // Create it now that we have a valid session
         await supabase.from("users").upsert({
           id: data.session.user.id,
           email: data.session.user.email!,

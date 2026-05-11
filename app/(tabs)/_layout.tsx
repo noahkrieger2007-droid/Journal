@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Tabs, router } from "expo-router";
+import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -9,14 +9,8 @@ import * as LocalAuthentication from "expo-local-authentication";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const { user, isLoading, setLocked } = useAuthStore();
+  const { setLocked } = useAuthStore();
   const { settings } = useSettingsStore();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/(auth)/login");
-    }
-  }, [user, isLoading]);
 
   useEffect(() => {
     if (settings.face_id_enabled) {
@@ -29,7 +23,6 @@ export default function TabsLayout() {
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     if (compatible && enrolled) {
       setLocked(true);
-      router.replace("/lock");
     }
   };
 
