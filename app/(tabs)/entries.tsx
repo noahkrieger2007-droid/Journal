@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Alert, Platform } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
@@ -18,10 +18,42 @@ function moodEmoji(s: number) {
 export default function EntriesScreen() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
-  const { entries, fetchEntries } = useJournalStore();
+  const { entries, fetchEntries, deleteEntry } = useJournalStore();
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = (item: JournalEntry) => {
+    const doDelete = async () => {
+      setDeletingId(item.id);
+      try {
+        await deleteEntry(item.id);
+      } finally {
+        setDeletingId(null);
+      }
+    };
+
+    const dateLabel = new Date(item.date).toLocaleDateString(
+      i18n.language === "de" ? "de-DE" : "en-US",
+      { day: "numeric", month: "long" }
+    );
+
+    if (Platform.OS === "web") {
+      if (window.confirm(`Eintrag vom ${dateLabel} löschen?`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        "Eintrag löschen",
+        `Eintrag vom ${dateLabel} wirklich löschen?`,
+        [
+          { text: "Abbrechen", style: "cancel" },
+          { text: "Löschen", style: "destructive", onPress: doDelete },
+        ]
+      );
+    }
+  };
 
   useFocusEffect(useCallback(() => { if (user) fetchEntries(user.id, 100); }, [user]));
 
@@ -112,9 +144,16 @@ export default function EntriesScreen() {
           </View>
 
           {/* Right side */}
-          <View style={{ alignItems: "flex-end", gap: 4, paddingTop: 2 }}>
+          <View style={{ alignItems: "flex-end", gap: 6, paddingTop: 2 }}>
             {item.mood_score && <Text style={{ fontSize: 17 }}>{moodEmoji(item.mood_score)}</Text>}
             <Ionicons name="chevron-forward" size={13} color={COLORS.muted} />
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation?.(); handleDelete(item); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ opacity: deletingId === item.id ? 0.4 : 1 }}
+            >
+              <Ionicons name="trash-outline" size={14} color={COLORS.danger} />
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </>

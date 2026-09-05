@@ -109,16 +109,24 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
       set({ processingStep: 1 });
 
-      const { data, error } = await supabase.functions.invoke(
-        "process-journal",
-        {
-          body: { entryId, userId, language },
-        }
-      );
+      // Call Vercel API route (works on web without Supabase CLI)
+      const apiBase =
+        typeof window !== "undefined" && window.location.origin
+          ? window.location.origin
+          : process.env.EXPO_PUBLIC_APP_URL || "";
 
-      if (error) throw error;
+      const response = await fetch(`${apiBase}/api/process-journal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId, userId, language }),
+      });
 
-      const processed = data as ProcessedEntry;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error ${response.status}`);
+      }
+
+      const processed = (await response.json()) as ProcessedEntry;
       set({ processingStep: 4 });
 
       // Build enriched summary including pattern observations
